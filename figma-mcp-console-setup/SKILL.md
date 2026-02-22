@@ -1,6 +1,6 @@
 # figma-mcp-console-setup
 
-**Version**: 1.1.0
+**Version**: 1.6.0
 **Platform**: macOS and Windows
 **Description**: Step-by-step guided setup of Figma Console MCP for designers. Walks the user through the full installation flow — from package manager to a verified Figma connection.
 **Author**: Design Agent Lab — designagentlab.com
@@ -10,9 +10,10 @@
 ## Before You Start
 
 **You will need:**
+- Claude Desktop app — not the browser version
 - Claude Pro, Max, Team or Enterprise
 - Figma Professional or above
-- Figma Desktop app — the web version will not work
+- Figma Desktop app — not the web version
 
 If you have all three — you are ready. Let's go.
 
@@ -56,13 +57,24 @@ Say exactly this to the user:
 
 "Welcome to the Figma Console MCP setup guide.
 
-Before we start — three quick things you will need:
+⚠️ **Important: You must be running Claude Desktop to use this setup guide — not the Claude web browser version. This will NOT work in the browser.**
 
+If you are running Claude in your web browser, please:
+1. Close this window
+2. Download and open Claude Desktop: https://claude.ai/download
+3. Then paste this skill into Claude Desktop and start again
+
+---
+
+If you are running Claude Desktop — great! Before we start, you will need:
+
+✦ Claude Desktop app (you are using this ✅)
 ✦ Claude Pro, Max, Team or Enterprise
 ✦ Figma Professional or above
-✦ Figma Desktop app — the web version will not work
+✦ Figma Desktop app — not the web version
+   Download: https://www.figma.com/downloads/
 
-Got all three? Then we are ready to go.
+Got everything? Then we are ready to go.
 
 We will go through the installation together — 9 steps in total. Some I will handle automatically. Some will ask you to click something in Figma. I will tell you clearly what to do at each stage.
 
@@ -251,7 +263,30 @@ Here is how to get one:
 5. Click **Generate new token**
 6. Give it a name — for example: 'Claude MCP'
 7. Set the expiration as you prefer
-8. Click **Generate token**
+8. Select the following scopes — check all of these:
+
+**Users**
+☑ current_user:read
+
+**Files**
+☑ file_comments:read
+☑ file_comments:write
+☑ file_content:read
+☑ file_metadata:read
+☑ file_versions:read
+
+**Variables**
+☑ file_variables:read
+☑ file_variables:write
+
+**Dev resources**
+☑ file_dev_resources:read
+☑ file_dev_resources:write
+
+**Libraries**
+☑ library_assets:read
+
+9. Click **Generate token**
 
 ⚠️ Important: Copy the token immediately — it starts with 'figd_' and you will not be able to see it again after leaving the page.
 
@@ -270,13 +305,19 @@ Reference: https://help.figma.com/hc/en-us/articles/8085703771159-Manage-persona
 
 Tell the user: "Now I will write the MCP config file automatically. You do not need to do anything."
 
-Check if config file exists:
+First, read the existing config file:
 
 ```bash
 cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
 ```
 
-**If file exists** — read the content and merge the new server entry carefully, preserving any existing mcpServers entries.
+**If file exists AND already contains a `figma-console` entry:**
+
+Do NOT add a duplicate. Instead update only the `FIGMA_ACCESS_TOKEN` value in the existing entry. Tell the user: "✅ Figma Console MCP is already in your config. I have updated the token."
+
+**If file exists but does NOT contain a `figma-console` entry:**
+
+Carefully merge the new entry into the existing `mcpServers` object, preserving all other entries. Never overwrite the whole file.
 
 **If file does not exist** — create it:
 
@@ -284,7 +325,7 @@ cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
 mkdir -p ~/Library/Application\ Support/Claude
 ```
 
-Write the following config to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Then write this config:
 
 ```json
 {
@@ -303,11 +344,13 @@ Write the following config to `~/Library/Application Support/Claude/claude_deskt
 
 Replace `[USER_TOKEN_HERE]` with the token provided in Step 5.
 
-Verify the file was written correctly:
+After writing, always verify the file is valid — check there is only ONE `figma-console` entry:
 
 ```bash
 cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
 ```
+
+If a duplicate exists — fix it by removing the duplicate entry before proceeding.
 
 Tell the user: "✅ Config file written successfully."
 
@@ -319,37 +362,68 @@ Wait for confirmation before proceeding to Step 7.
 
 ## STEP 7 — Import Desktop Bridge Plugin
 
-Tell the user: "Now we need to import the Figma Desktop Bridge plugin. This is what connects Figma and Claude.
+Tell the user:
 
-First, I will find the plugin path on your machine."
+"This is the most important step. The Figma Desktop Bridge plugin is the gateway between Claude and Figma — without it running, nothing works.
+
+We will import it once. After that, you just need to launch it every time you work with the agent in Figma.
+
+Let me find the plugin on your machine and copy the path to your clipboard automatically."
 
 Run:
 
 ```bash
-npx figma-console-mcp@latest --print-path
+MANIFEST=$(find ~/.npm/_npx -name "manifest.json" -path "*/figma-desktop-bridge/*" 2>/dev/null | head -1)
+if [ -z "$MANIFEST" ]; then
+  BASE=$(npx figma-console-mcp@latest --print-path 2>/dev/null)
+  MANIFEST="${BASE}/figma-desktop-bridge/manifest.json"
+fi
+echo "$MANIFEST"
+echo "$MANIFEST" | pbcopy
 ```
 
-Take the output path and append `/figma-desktop-bridge/manifest.json` to it.
+**If the path is found** — tell the user this (be specific and clear):
 
-Tell the user:
+"✅ Found it.
 
-"Your Desktop Bridge plugin manifest is located at:
+Your plugin manifest is at:
+$MANIFEST
 
-[FULL PATH TO MANIFEST.JSON]
+Here's what that path means:
+- The `.npm/_npx` folder is where npm caches packages
+- The long code (`[unique-code]`) is generated by npm and is different on every machine — this is normal
+- Inside that folder is the figma-console-mcp package
+- Inside that is the figma-desktop-bridge folder with the manifest.json file we need
 
-Now do the following in Figma Desktop:
+I have copied this entire path to your clipboard.
+
+Now do this in Figma Desktop:
 
 1. Open any Figma file
-2. Go to the menu: **Plugins → Development → Import plugin from manifest...**
-3. In the dialog, paste this path or navigate to it:
+2. Go to **Plugins → Development → Import plugin from manifest...**
+3. A Finder file picker window will open — this is the standard Mac file browser
+4. The path you need is very deep in folders (in `.npm/_npx/...`), so instead of clicking through many folders, we will use a Mac shortcut:
+   - Press **Cmd + Shift + G** — a small input field will appear at the top
+   - This is the 'Go to Folder' shortcut — it lets you paste a path directly instead of browsing
+5. Press **Cmd + V** to paste the path (I already copied it to your clipboard)
+6. Press **Enter** — Finder will instantly jump to that folder
+7. You will see the file `manifest.json` in the folder
+8. Click on it and click **Open**
+9. Figma will import the plugin — 'Figma Desktop Bridge' will now appear in **Plugins → Development**
 
-[FULL PATH TO MANIFEST.JSON]
+Tell me when you see 'Figma Desktop Bridge' in your Development plugins list."
 
-4. Figma will open a Finder window — press **Cmd + Shift + G** to open the 'Go to Folder' dialog, paste the path above and press Enter
-5. Select the **manifest.json** file and click **Open**
-6. The plugin 'Figma Desktop Bridge' will appear in your Development plugins
+**If the path is empty** — the package cache may not exist yet. Tell the user:
 
-Tell me when it is imported."
+"The plugin file is not cached yet. Let me download it now."
+
+Run:
+
+```bash
+npx -y figma-console-mcp@latest
+```
+
+This will download the package. After it completes, I will run the find command again and give you the path.
 
 Wait for confirmation. Proceed to Step 8.
 
@@ -359,15 +433,25 @@ Wait for confirmation. Proceed to Step 8.
 
 Tell the user:
 
-"Almost there! Now we need to run the Desktop Bridge plugin in Figma.
+"Now we need to launch the Desktop Bridge plugin. This is the gateway — it must be running every time you use the agent in Figma. Think of it as turning the key before starting the engine.
 
-1. In Figma Desktop, go to: **Plugins → Development → Figma Desktop Bridge**
-2. The plugin window will open
-3. You should see a connection status — look for:
+Here is how to launch it:
+
+1. Open any Figma file in Figma Desktop
+2. In the Figma menu at the top, go to **Plugins**
+3. Look for the **Development** section (usually at the bottom of the menu)
+4. Inside Development, you will see 'Figma Desktop Bridge' — click on it
+5. The plugin window will open — keep it open in a separate window, do not close it
+6. You should see a connection status in the plugin window. Look for:
    - ✅ 'MCP ready'
-   - ✅ 'Connected to ws://localhost:[port]'
+   - ✅ 'Connected to ws://localhost:[port]' (the port number will be something like 9223, 9224, etc.)
 
-If you see either of these — you are connected. Tell me what you see."
+⚠️ Important: The plugin window must stay open while you work. If you close it, the connection drops. Keep it open in the background.
+
+Also make sure 'Use Developer VM' is enabled in Figma:
+- Go to **Plugins → Development → Use Developer VM** — toggle it on if it is off
+
+Tell me what you see in the plugin window when it opens."
 
 **If connection confirmed** — proceed to Step 9.
 
@@ -450,9 +534,17 @@ Ask user to close and reopen Desktop Bridge plugin in Figma and try again.
 
 ## WIN STEP 0.5 — Enable Claude Code
 
-Tell the user:
+Run this test command automatically:
 
-"One more thing before we start. Claude needs permission to run code on your machine — without this, I cannot handle the automatic steps.
+```powershell
+echo "claude-code-enabled"
+```
+
+**If the command runs successfully** — tell the user: "✅ Code execution is enabled. Moving on." — proceed to WIN Step 1.
+
+**If the command fails** — tell the user:
+
+"I need one permission before we start. Claude needs to be allowed to run code on your machine — without this I cannot handle the automatic steps.
 
 Here is how to enable it:
 
@@ -461,9 +553,9 @@ Here is how to enable it:
 3. Click **Capabilities**
 4. Toggle on **'Code execution and file creation'**
 
-Come back when it is on."
+Come back when it is on — I will check again automatically."
 
-Wait for user confirmation. Then proceed to WIN Step 1.
+Then re-run the test command to verify. Proceed to WIN Step 1 when confirmed.
 
 ---
 
@@ -569,7 +661,30 @@ Here is how to get one:
 5. Click **Generate new token**
 6. Give it a name — for example: 'Claude MCP'
 7. Set the expiration as you prefer
-8. Click **Generate token**
+8. Select the following scopes — check all of these:
+
+**Users**
+☑ current_user:read
+
+**Files**
+☑ file_comments:read
+☑ file_comments:write
+☑ file_content:read
+☑ file_metadata:read
+☑ file_versions:read
+
+**Variables**
+☑ file_variables:read
+☑ file_variables:write
+
+**Dev resources**
+☑ file_dev_resources:read
+☑ file_dev_resources:write
+
+**Libraries**
+☑ library_assets:read
+
+9. Click **Generate token**
 
 ⚠️ Important: Copy the token immediately — it starts with 'figd_' and you will not be able to see it again after leaving the page.
 
@@ -588,15 +703,21 @@ Reference: https://help.figma.com/hc/en-us/articles/8085703771159-Manage-persona
 
 Tell the user: "Now I will write the MCP config file automatically. You do not need to do anything."
 
-Check if config file exists:
+First, read the existing config file:
 
 ```powershell
-Test-Path "$env:APPDATA\Claude\claude_desktop_config.json"
+Get-Content "$env:APPDATA\Claude\claude_desktop_config.json"
 ```
 
-**If file exists** — read the content and merge the new server entry carefully, preserving any existing mcpServers entries.
+**If file exists AND already contains a `figma-console` entry:**
 
-**If file does not exist** — create the folder and file:
+Do NOT add a duplicate. Instead update only the `FIGMA_ACCESS_TOKEN` value in the existing entry. Tell the user: "✅ Figma Console MCP is already in your config. I have updated the token."
+
+**If file exists but does NOT contain a `figma-console` entry:**
+
+Carefully merge the new entry into the existing `mcpServers` object, preserving all other entries. Never overwrite the whole file.
+
+**If file does not exist** — create the folder:
 
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:APPDATA\Claude"
@@ -637,36 +758,56 @@ Wait for confirmation before proceeding to WIN Step 6.
 
 ## WIN STEP 6 — Import Desktop Bridge Plugin
 
-Tell the user: "Now we need to import the Figma Desktop Bridge plugin. This is what connects Figma and Claude.
+Tell the user: "This is the most important step. The Figma Desktop Bridge plugin is the gateway between Claude and Figma — without it running, nothing works.
 
-First, I will find the plugin path on your machine."
+We will import it once. After that, you just need to launch it every time you work with the agent in Figma.
+
+Let me find the plugin on your machine and copy the path to your clipboard automatically."
 
 Run:
 
 ```powershell
-npx figma-console-mcp@latest --print-path
+$MANIFEST = Get-ChildItem -Path "$env:LOCALAPPDATA\npm-cache\_npx","$env:APPDATA\npm-cache\_npx" -Filter "manifest.json" -Recurse -ErrorAction SilentlyContinue |
+  Where-Object { $_.DirectoryName -like "*figma-desktop-bridge*" } |
+  Select-Object -First 1 -ExpandProperty FullName
+if (-not $MANIFEST) {
+  $BASE = (npx figma-console-mcp@latest --print-path 2>$null)
+  $MANIFEST = "$BASE\figma-desktop-bridge\manifest.json"
+}
+Set-Clipboard $MANIFEST
+Write-Output "Path: $MANIFEST"
 ```
 
-Take the output path and append `\figma-desktop-bridge\manifest.json` to it.
+**If the path is found** — tell the user this (be specific and clear):
 
-Tell the user:
+"✅ Found it.
 
-"Your Desktop Bridge plugin manifest is located at:
+Your plugin manifest is at:
+$MANIFEST
 
-[FULL PATH TO MANIFEST.JSON]
+Here's what that path means:
+- The `AppData\Roaming\npm-cache\_npx` folder is where npm caches packages on Windows
+- The long code (`[unique-code]`) is generated by npm and is different on every machine — this is normal
+- Inside that folder is the figma-console-mcp package
+- Inside that is the figma-desktop-bridge folder with the manifest.json file we need
 
-Now do the following in Figma Desktop:
+I have copied this entire path to your clipboard.
+
+Now do this in Figma Desktop:
 
 1. Open any Figma file
-2. Go to the menu: **Plugins → Development → Import plugin from manifest...**
-3. A File Explorer window will open — click in the address bar at the top, paste this path and press Enter:
+2. Go to **Plugins → Development → Import plugin from manifest...**
+3. A File Explorer window will open — this is the standard Windows file browser
+4. The path you need is very deep in folders (in `AppData\Roaming\npm-cache\_npx\...`), so instead of clicking through many folders, we will use the address bar:
+   - At the very top of File Explorer, you see the current folder path (like `C:\Users\YourName\Documents`)
+   - Click on the **address bar** at the top
+5. Press **Ctrl + V** to paste the path (I already copied it to your clipboard)
+6. Press **Enter** — File Explorer will instantly jump to that folder
+7. You will see the file `manifest.json` in the folder
+8. Click on it and click **Open**
+9. Figma will import the plugin — 'Figma Desktop Bridge' will now appear in **Plugins → Development**
 
-[FULL PATH TO MANIFEST.JSON]
-
-4. Select the **manifest.json** file and click **Open**
-5. The plugin 'Figma Desktop Bridge' will appear in your Development plugins
-
-Tell me when it is imported."
+Tell me when you see 'Figma Desktop Bridge' in your Development plugins list."
 
 Wait for confirmation. Proceed to WIN Step 7.
 
@@ -676,15 +817,25 @@ Wait for confirmation. Proceed to WIN Step 7.
 
 Tell the user:
 
-"Almost there! Now we need to run the Desktop Bridge plugin in Figma.
+"Now we need to launch the Desktop Bridge plugin. This is the gateway — it must be running every time you use the agent in Figma. Think of it as turning the key before starting the engine.
 
-1. In Figma Desktop, go to: **Plugins → Development → Figma Desktop Bridge**
-2. The plugin window will open
-3. You should see a connection status — look for:
+Here is how to launch it:
+
+1. Open any Figma file in Figma Desktop
+2. In the Figma menu at the top, go to **Plugins**
+3. Look for the **Development** section (usually at the bottom of the menu)
+4. Inside Development, you will see 'Figma Desktop Bridge' — click on it
+5. The plugin window will open — keep it open in a separate window, do not close it
+6. You should see a connection status in the plugin window. Look for:
    - ✅ 'MCP ready'
-   - ✅ 'Connected to ws://localhost:[port]'
+   - ✅ 'Connected to ws://localhost:[port]' (the port number will be something like 9223, 9224, etc.)
 
-If you see either of these — you are connected. Tell me what you see."
+⚠️ Important: The plugin window must stay open while you work. If you close it, the connection drops. Keep it open in the background.
+
+Also make sure 'Use Developer VM' is enabled in Figma:
+- Go to **Plugins → Development → Use Developer VM** — toggle it on if it is off
+
+Tell me what you see in the plugin window when it opens."
 
 **If connection confirmed** — proceed to WIN Step 8.
 
