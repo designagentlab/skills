@@ -1,6 +1,6 @@
 # claude-to-figma
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Platform**: macOS and Windows
 **Description**: Your AI design partner for Figma. Build component context, analyze design patterns, design layouts from your library, and troubleshoot Figma Console MCP — all from Claude.
 **Author**: Design Agent Lab — designagentlab.com
@@ -53,6 +53,8 @@ I connect directly to your Figma Desktop and help you design with your own compo
 ✦ Build a context of your design patterns — so I understand how your product works
 ✦ Design in Figma — build layouts, populate content, map structures to your components
 ✦ Troubleshoot — fix connection issues when something is not working
+
+💡 One recommendation before we start: if this is a live or production Figma file, consider creating a **Figma branch** first — Menu → File → Create branch. It keeps your main file safe while we work together. You can merge the branch when you are happy, or delete it if you want to start over. Totally up to you.
 
 Let me check your connection first. One second."
 
