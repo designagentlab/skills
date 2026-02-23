@@ -1,6 +1,6 @@
 # figma-mcp-console-setup
 
-**Version**: 1.6.0
+**Version**: 1.7.0
 **Platform**: macOS and Windows
 **Description**: Step-by-step guided setup of Figma Console MCP for designers. Walks the user through the full installation flow — from package manager to a verified Figma connection.
 **Author**: Design Agent Lab — designagentlab.com
@@ -838,10 +838,12 @@ Tell me what you see in the plugin window when it opens."
 
 **If not connecting** — run troubleshooting:
 
-Tell the user: "Let's fix the connection. Please open PowerShell and run this:"
+Tell the user: "Let's fix the connection. Let me clear the MCP process automatically."
+
+Run automatically:
 
 ```powershell
-taskkill /F /IM node.exe
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "*figma-console-mcp*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 ```
 
 Then check port:
@@ -850,7 +852,7 @@ Then check port:
 netstat -ano | findstr :9223
 ```
 
-If a process is on the port, note the PID and run:
+If a process is still on the port, note the PID and run:
 
 ```powershell
 taskkill /PID [PID] /F
@@ -858,7 +860,7 @@ taskkill /PID [PID] /F
 
 Then ask the user to close and reopen the Desktop Bridge plugin in Figma.
 
-Ports used by Figma Console MCP: **9223–9232**. If the default port is taken, the server falls back through this range automatically.
+Ports used by Figma Console MCP: **9223–9232**. As of v1.10.0, multiple instances can run simultaneously — the server and plugin handle this automatically.
 
 ---
 
@@ -882,8 +884,8 @@ Automate routine. Craft exceptional."
 **If connection fails** — run full troubleshooting:
 
 ```powershell
-# Kill old processes
-taskkill /F /IM node.exe
+# Kill only the MCP process — does not affect other Node tools
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "*figma-console-mcp*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 
 # Check port
 netstat -ano | findstr :9223
@@ -919,28 +921,28 @@ Ask user to close and reopen Desktop Bridge plugin in Figma and try again.
 - Check: `cat ~/Library/Application\ Support/Claude/claude_desktop_config.json`
 
 ### Port conflicts
-- Multiple Claude sessions create multiple MCP instances
-- Always run one Claude session at a time
 - Mac: kill orphan processes with `pkill -f figma-console-mcp`
-- Windows: kill orphan processes with `taskkill /F /IM node.exe`
+- Windows: kill only the MCP process with `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "*figma-console-mcp*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`
 - Never force-quit Figma — it leaves orphan processes
 - Ports used: 9223–9232
+- As of v1.10.0, multiple instances run simultaneously — the server handles this automatically
 
 ---
 
 ## BEST PRACTICES
 
-- Keep only one Claude Desktop session running at a time
 - Always check plugin status before starting work
 - Keep the Desktop Bridge plugin window open while working
 - If switching between Figma files — reconnect: `figma_reconnect`
-- Kill old processes at the start of each session
+- If something stops responding — kill just the MCP process and reopen the plugin
 
 ---
 
 ## RESOURCES
 
 - Figma Console MCP: https://github.com/southleft/figma-console-mcp
+- Figma Console MCP Docs: https://docs.figma-console-mcp.southleft.com
+- Multi-instance support (v1.10.0+): https://docs.figma-console-mcp.southleft.com/architecture#multi-instance-support-v1-10-0+
 - Figma Personal Access Tokens: https://help.figma.com/hc/en-us/articles/8085703771159
 - Homebrew: https://brew.sh
 - Homebrew Docs: https://docs.brew.sh/Manpage
