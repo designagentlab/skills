@@ -1,6 +1,6 @@
 # designops
 
-**Version**: 1.1.0
+**Version**: 1.2.0
 **Platform**: macOS and Windows
 **Description**: DesignOps is your setup assistant from Design Agent Lab. It installs the required tools for agentic design — Homebrew, Node.js — and guides you through adding Playwright, Gemini Image Generation, and Figma Console MCP.
 **Author**: Design Agent Lab — designagentlab.com
@@ -309,10 +309,12 @@ Tell the user:
 
 "Let's set up Gemini Image Generation. This lets you generate images directly inside Claude using Google's AI.
 
-Before we start — this is not free. Google charges per image generated through their API. Make sure you are comfortable with that before continuing.
+Before we start — two things to know:
+1. Image generation is not available on the free Google AI Studio tier. You must enable billing on your Google Cloud project before any image calls will work.
+2. Once billing is enabled, Google charges per image generated. Make sure you are comfortable with that before continuing.
 
 We will need to:
-1. Create a Google AI Studio account and get an API key
+1. Enable billing and get a Google AI Studio API key
 2. Install the Python SDK
 3. Test with one image
 
@@ -322,13 +324,20 @@ Let's go."
 
 Tell the user:
 
-"First, let's get your Gemini API key. Here is how:
+"First, let's enable billing and get your Gemini API key. Here is how:
 
+**Step 1 — Enable billing (required for image generation):**
+1. Go to: https://ai.dev/projects
+2. Select your Google Cloud project (or create one)
+3. Click **Billing** and link a billing account
+4. Image generation has zero quota on the free tier — this step is not optional
+
+**Step 2 — Get your API key:**
 1. Go to: https://aistudio.google.com
 2. Sign in with your Google account
 3. In the left sidebar, click **Get API key**
 4. Click **Create API key**
-5. Select a Google Cloud project — if you are new, Google will create one for you automatically
+5. Select the same project you enabled billing on
 6. Click **Create key**
 7. Copy the key when it appears — it starts with 'AIza'
 
@@ -341,20 +350,20 @@ Wait for the user to paste their key. Validate it starts with `AIza`.
 If valid — store as `GEMINI_API_KEY` and tell the user: "✅ API key received. Moving on."
 If invalid — ask the user to check and try again.
 
-### Part 2 — Install Python SDK
+### Part 2 — Install Node.js SDK
 
-Tell the user: "Now I will install the required Python libraries. You do not need to do anything."
+Tell the user: "Now I will install the Gemini SDK. You do not need to do anything."
 
 Run automatically:
 
 ```bash
-pip install -q google-genai pillow --break-system-packages
+npm install -g @google/genai
 ```
 
 Verify:
 
 ```bash
-python3 -c "from google import genai; print('google-genai ready')"
+node -e "const { GoogleGenAI } = require('@google/genai'); console.log('google-genai ready')"
 ```
 
 Tell the user: "✅ Gemini SDK installed."
@@ -374,32 +383,34 @@ Replace `[USER_KEY_HERE]` with the key provided above.
 
 Tell the user: "Let me test the connection with a quick image generation."
 
-Run:
+Write this file to `~/Desktop/designops_test.mjs`:
 
-```python
-import os
-from google import genai
-from google.genai import types
-from PIL import Image
-from io import BytesIO
+```javascript
+import { GoogleGenAI } from "@google/genai";
+import * as fs from "node:fs";
 
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-response = client.models.generate_images(
-    model='gemini-3.1-flash-image-preview',
-    prompt="A minimal geometric shape on a white background, clean design",
-    config=types.GenerateImagesConfig(
-        number_of_images=1,
-        aspect_ratio="1:1",
-    )
-)
+const response = await ai.models.generateContent({
+  model: "gemini-3.1-flash-image-preview",
+  contents: "A minimal geometric shape on a white background, clean design",
+});
 
-if response.generated_images:
-    image = Image.open(BytesIO(response.generated_images[0].image.image_bytes))
-    image.save(os.path.expanduser("~/Desktop/designops_test.png"))
-    print("Success — image saved to Desktop")
-else:
-    print("No image generated")
+for (const part of response.candidates[0].content.parts) {
+  if (part.text) {
+    console.log(part.text);
+  } else if (part.inlineData) {
+    const buffer = Buffer.from(part.inlineData.data, "base64");
+    fs.writeFileSync(`${process.env.HOME}/Desktop/designops_test.png`, buffer);
+    console.log("Success — image saved to Desktop");
+  }
+}
+```
+
+Then run:
+
+```bash
+node ~/Desktop/designops_test.mjs
 ```
 
 **If successful** — tell the user:
@@ -413,9 +424,9 @@ You can now ask Claude to generate images. For example:
 - 'Create a square social media image, dark background, abstract shapes'
 - 'Generate a portrait image for a mobile app hero section'
 
-Supported aspect ratios: 1:1, 4:3, 3:4, 16:9, 9:16, 4:1, 1:4"
+Supported aspect ratios: 1:1, 4:3, 3:4, 16:9, 9:16"
 
-**If it fails** — check the API key is set correctly and retry.
+**If it fails** — confirm that billing is enabled on your Google Cloud project at https://ai.dev/projects, then retry.
 
 ---
 
@@ -616,12 +627,24 @@ Wait for confirmation before proceeding.
 
 ## WIN STEP 4B — Gemini Image Generation
 
-Same flow as MAC STEP 5B — Google AI Studio account, API key, SDK install, test image.
+Same flow as MAC STEP 5B — enable billing at https://ai.dev/projects, get API key from https://aistudio.google.com, install SDK, run test image.
 
-For setting the API key on Windows, use:
+Install the SDK on Windows with:
+
+```powershell
+npm install -g @google/genai
+```
+
+Set the API key on Windows with:
 
 ```powershell
 [System.Environment]::SetEnvironmentVariable("GEMINI_API_KEY", "[USER_KEY_HERE]", "User")
+```
+
+Use the same Node.js test script from MAC STEP 5B Part 4. Run it with:
+
+```powershell
+node $env:USERPROFILE\Desktop\designops_test.mjs
 ```
 
 ---
