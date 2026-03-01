@@ -363,7 +363,7 @@ npm install -g @google/genai
 Verify:
 
 ```bash
-node --input-type=module --eval "import('@google/genai').then(() => console.log('google-genai ready'))" 2>/dev/null || echo "google-genai ready (installed globally)"
+mkdir -p /tmp/designops-test && cd /tmp/designops-test && npm install @google/genai --save-quiet 2>/dev/null && echo 'import { GoogleGenAI } from "@google/genai"; console.log("google-genai ready");' > check.mjs && node check.mjs && rm check.mjs
 ```
 
 Tell the user: "✅ Gemini SDK installed."
@@ -392,7 +392,7 @@ mkdir -p /tmp/designops-test && cd /tmp/designops-test && npm install @google/ge
 Then write `/tmp/designops-test/designops_test.mjs`:
 
 ```javascript
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import * as fs from "node:fs";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -400,6 +400,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const response = await ai.models.generateContent({
   model: "gemini-3.1-flash-image-preview",
   contents: "A minimal geometric shape on a white background, clean design",
+  config: { responseModalities: [Modality.TEXT, Modality.IMAGE] },
 });
 
 for (const part of response.candidates[0].content.parts) {
